@@ -103,6 +103,16 @@ final class ClientTest extends TestCase
         $this->assertNull($this->calls[0]['payload']);
     }
 
+    public function testStyleguideReadsADomainOrOnePage(): void
+    {
+        $client = $this->clientReturning(200, ['success' => true, 'data' => []]);
+        $client->styleguide('https://stripe.com/pricing', ['maxAge' => 0]);
+
+        $this->assertStringContainsString('url=https%3A%2F%2Fstripe.com%2Fpricing', $this->lastUrl());
+        $this->assertStringContainsString('maxAge=0', $this->lastUrl());
+        $this->assertStringNotContainsString('domain=', $this->lastUrl());
+    }
+
     public function testErrorCarriesCodeStatusAndRequestId(): void
     {
         $client = $this->clientReturning(401, [

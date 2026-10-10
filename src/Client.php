@@ -81,9 +81,10 @@ class Client
         return $this->get('/v1/web/brand/logo', ['domain' => $domain] + $options);
     }
 
-    public function styleguide(string $domain): array
+    public function styleguide(string $domainOrUrl, array $options = []): array
     {
-        return $this->get('/v1/web/styleguide', ['domain' => $domain]);
+        $key = preg_match('#^https?://#i', $domainOrUrl) ? 'url' : 'domain';
+        return $this->get('/v1/web/styleguide', [$key => $domainOrUrl] + $options);
     }
 
     public function screenshot(string $url, array $options = []): array

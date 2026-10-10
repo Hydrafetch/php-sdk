@@ -129,6 +129,7 @@ foreach ($res['results'] as $r) {
 $hf->brand('stripe.com');                                    // logos, colours, fonts, socials
 $hf->logo('stripe.com', ['theme' => 'dark', 'type' => 'icon']); // one asset
 $hf->styleguide('stripe.com');                               // computed design system
+$hf->styleguide('https://stripe.com/pricing', ['maxAge' => 0]); // one page, read fresh
 ```
 
 For logos in a browser use [`@hydrafetch/client-sdk`](https://github.com/Hydrafetch/client-sdk) with a publishable key. Those bill against logo pulls rather than credits.
@@ -196,7 +197,7 @@ A `transport` callable can be injected for testing, which is how this package's 
 | `extract($urls, $options)` | array with `'results'` | 5 per URL |
 | `brand($domain)` | brand array | 5 |
 | `logo($domain, $options)` | logo array | 1 |
-| `styleguide($domain)` | design system array | 10 |
+| `styleguide($domainOrUrl, $options = [])` | design system array | 10 |
 | `screenshot($url, $options)` | screenshot array | 5 |
 | `images($url)`, `links($url)` | page assets | 1 |
 | `crawl($url, $options, ...)` | job array, polled to completion | 1 per page |
