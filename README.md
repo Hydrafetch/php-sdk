@@ -29,7 +29,7 @@ $page = $hf->scrape('https://example.com/article');
 echo $page['markdown'];
 ```
 
-Create a key at [app.hydrafetch.com](https://app.hydrafetch.com). The constructor reads `HYDRAFETCH_API_KEY` when no key is passed.
+Copy your key from [app.hydrafetch.com](https://app.hydrafetch.com). The constructor reads `HYDRAFETCH_API_KEY` when no key is passed.
 
 Responses are associative arrays. Option keys are camelCase because they are passed to the API unchanged.
 
