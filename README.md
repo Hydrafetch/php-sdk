@@ -134,6 +134,24 @@ $hf->styleguide('https://stripe.com/pricing', ['maxAge' => 0]); // one page, rea
 
 For logos in a browser use [`@hydrafetch/client-sdk`](https://github.com/Hydrafetch/client-sdk) with a publishable key. Those bill against logo pulls rather than credits.
 
+## Rating results
+
+Tell us when a result was wrong, so it gets looked at. It is free, and rating the same request again replaces the earlier rating.
+
+```php
+$hf->scrape('https://stripe.com/pricing');
+$hf->rateResult(
+    'bad',
+    requestId: $hf->lastRequestId(),
+    reasons: ['missing_content'],
+    note: 'The enterprise tier is missing',
+);
+
+$hf->rateResult('good', url: 'https://stripe.com/pricing'); // by URL, last 24 hours
+```
+
+Reasons are `missing_content`, `wrong_content`, `blocked`, `slow`, `formatting` and `other`.
+
 ## Error handling
 
 All failures throw `Hydrafetch\HydrafetchException`, carrying the API's error code, HTTP status and request id.
@@ -204,6 +222,7 @@ A `transport` callable can be injected for testing, which is how this package's 
 | `batch($urls, $options, ...)` | job array, polled to completion | 1 per page |
 | `startCrawl`, `startBatch` | job id `string` | 1 per page |
 | `crawlStatus($id)`, `batchStatus($id)` | job array | free |
+| `rateResult($rating, requestId:, url:, reasons:, note:)` | rating array | free |
 
 Failed requests are not billed. Pricing does not vary with page difficulty, so there is no render, stealth or proxy option to set.
 

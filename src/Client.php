@@ -14,6 +14,7 @@ class Client
     private string $baseUrl;
     private int $timeout;
     private int $maxRetries;
+    private ?string $lastRequestId = null;
 
     /** @var callable|null */
     private $transport;
@@ -40,6 +41,35 @@ class Client
         $this->timeout = $timeout;
         $this->maxRetries = $maxRetries;
         $this->transport = $transport;
+    }
+
+    public function lastRequestId(): ?string
+    {
+        return $this->lastRequestId;
+    }
+
+    public function rateResult(
+        string $rating,
+        ?string $requestId = null,
+        ?string $url = null,
+        ?array $reasons = null,
+        ?string $note = null,
+    ): array {
+        if ($requestId === null && $url === null) {
+            throw new HydrafetchException(
+                'Pass requestId or url to say which result you are rating.',
+                'VALIDATION_ERROR',
+                400,
+            );
+        }
+
+        return $this->post('/v1/web/feedback', $this->compact([
+            'requestId' => $requestId,
+            'url' => $url,
+            'rating' => $rating,
+            'reasons' => $reasons,
+            'note' => $note,
+        ]));
     }
 
     public function scrape(string $url, array $options = []): array
@@ -206,7 +236,10 @@ class Client
         $payload = $body === null ? null : json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
         for ($attempt = 0; ; $attempt++) {
-            [$status, $raw] = $this->send($method, $url, $payload);
+            $response = $this->send($method, $url, $payload);
+            [$status, $raw] = $response;
+            $headers = $response[2] ?? [];
+            $this->lastRequestId = $headers['x-request-id'] ?? $this->lastRequestId;
 
             try {
                 return $this->unwrap($status, $raw);
@@ -234,7 +267,16 @@ class Client
             $headers[] = 'Content-Type: application/json';
         }
 
+        $responseHeaders = [];
         curl_setopt_array($handle, [
+            CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$responseHeaders): int {
+                $parts = explode(':', $line, 2);
+                if (count($parts) === 2) {
+                    $responseHeaders[strtolower(trim($parts[0]))] = trim($parts[1]);
+                }
+
+                return strlen($line);
+            },
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_HTTPHEADER => $headers,
@@ -262,7 +304,7 @@ class Client
             throw new HydrafetchException($error, 'TRANSPORT', 500);
         }
 
-        return [$status, is_string($raw) ? $raw : ''];
+        return [$status, is_string($raw) ? $raw : '', $responseHeaders];
     }
 
     private function unwrap(int $status, string $raw): array

@@ -241,4 +241,37 @@ final class ClientTest extends TestCase
         $this->expectException(TimeoutException::class);
         $client->batch(['https://a.example'], [], 0.001, 0.005);
     }
+
+    public function testRateResultPostsTheRatingForTheLastRequest(): void
+    {
+        $client = $this->clientWith(function (string $method, string $url) {
+            if (str_ends_with($url, '/v1/web/feedback')) {
+                return [200, json_encode(['success' => true, 'data' => ['id' => 'f1', 'requestId' => 'r1', 'rating' => 'bad']])];
+            }
+
+            return [200, json_encode(['success' => true, 'data' => []]), ['x-request-id' => 'r1']];
+        });
+        $client->scrape('https://example.com');
+        $this->assertSame('r1', $client->lastRequestId());
+
+        $out = $client->rateResult('bad', requestId: $client->lastRequestId(), reasons: ['missing_content'], note: 'no prices');
+
+        $this->assertSame('f1', $out['id']);
+        $this->assertSame('https://api.example.test/v1/web/feedback', $this->lastUrl());
+        $this->assertSame(
+            ['requestId' => 'r1', 'rating' => 'bad', 'reasons' => ['missing_content'], 'note' => 'no prices'],
+            $this->lastBody(),
+        );
+    }
+
+    public function testRateResultByUrlAndNeedsATarget(): void
+    {
+        $client = $this->clientReturning(200, ['success' => true, 'data' => ['id' => 'f2']]);
+        $client->rateResult('good', url: 'https://example.com');
+        $this->assertSame(['url' => 'https://example.com', 'rating' => 'good'], $this->lastBody());
+
+        $this->expectException(HydrafetchException::class);
+        $client->rateResult('good');
+    }
 }
+
