@@ -123,6 +123,27 @@ foreach ($res['results'] as $r) {
 }
 ```
 
+## Jobs
+
+Search open jobs collected from company career sites and hiring platforms, by the words in the job title:
+
+```php
+$jobs = $hf->searchJobs('data engineer', ['location' => 'Berlin', 'postedWithinDays' => 14, 'limit' => 20]);
+
+foreach ($jobs as $job) {
+    echo $job['title'], ' ', $job['domain'], ' ', $job['url'], PHP_EOL;
+}
+```
+
+See what changed in a company's hiring since a date: what is open now, what opened and what closed, by department, seniority and location, with the jobs themselves:
+
+```php
+[$acme] = $hf->hiringChanges('acme.com', '2026-10-01');
+print_r($acme['totals']); // ['open' => 42, 'opened' => 6, 'closed' => 3]
+```
+
+A search costs 1 credit per 10 jobs returned, and an empty one is free. Hiring changes cost 1 credit per company we have jobs for; companies we do not track yet come back empty and are free.
+
 ## Brand data
 
 ```php
@@ -212,6 +233,8 @@ A `transport` callable can be injected for testing, which is how this package's 
 | `markdown($url, $options)` | `string` | 1 |
 | `map($url, $options)` | links array | 1 |
 | `search($query, $options)` | results array | 1 + 1 per scraped result |
+| `searchJobs($query, $options)` | jobs array | 1 per 10 jobs |
+| `hiringChanges($domains, $since, $options)` | companies array | 1 per company with jobs |
 | `extract($urls, $options)` | array with `'results'` | 5 per URL |
 | `brand($domain)` | brand array | 5 |
 | `logo($domain, $options)` | logo array | 1 |

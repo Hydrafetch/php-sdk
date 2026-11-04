@@ -273,5 +273,28 @@ final class ClientTest extends TestCase
         $this->expectException(HydrafetchException::class);
         $client->rateResult('good');
     }
-}
 
+    public function testSearchJobsPostsTheQueryAndReturnsTheList(): void
+    {
+        $client = $this->clientReturning(200, ['success' => true, 'data' => [['title' => 'Data Engineer', 'domain' => 'acme.com']]]);
+        $jobs = $client->searchJobs('data engineer', ['location' => 'Berlin', 'limit' => 20]);
+
+        $this->assertSame('Data Engineer', $jobs[0]['title']);
+        $this->assertSame('https://api.example.test/v1/web/index/jobs/search', $this->lastUrl());
+        $this->assertSame(['query' => 'data engineer', 'location' => 'Berlin', 'limit' => 20], $this->lastBody());
+    }
+
+    public function testHiringChangesTakesOneDomainOrManyAndADate(): void
+    {
+        $client = $this->clientReturning(200, ['success' => true, 'data' => []]);
+        $client->hiringChanges('stripe.com', new \DateTimeImmutable('2026-10-01T00:00:00Z'));
+        $this->assertSame('https://api.example.test/v1/web/index/jobs/changes', $this->lastUrl());
+        $this->assertSame(['domains' => ['stripe.com'], 'since' => '2026-10-01T00:00:00+00:00'], $this->lastBody());
+
+        $client->hiringChanges(['a.com', 'b.com'], '2026-10-01', ['includeDescriptions' => true]);
+        $this->assertSame(
+            ['domains' => ['a.com', 'b.com'], 'since' => '2026-10-01', 'includeDescriptions' => true],
+            $this->lastBody(),
+        );
+    }
+}

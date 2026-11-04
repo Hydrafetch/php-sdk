@@ -94,6 +94,19 @@ class Client
         return $this->post('/v1/web/search', ['query' => $query] + $options);
     }
 
+    public function searchJobs(string $query, array $options = []): array
+    {
+        return $this->post('/v1/web/index/jobs/search', ['query' => $query] + $options);
+    }
+
+    public function hiringChanges(string|array $domains, string|\DateTimeInterface $since, array $options = []): array
+    {
+        return $this->post('/v1/web/index/jobs/changes', [
+            'domains' => is_string($domains) ? [$domains] : array_values($domains),
+            'since' => $since instanceof \DateTimeInterface ? $since->format(\DateTimeInterface::ATOM) : $since,
+        ] + $options);
+    }
+
     public function extract(string|array $urls, array $options = []): array
     {
         $list = is_string($urls) ? [$urls] : array_values($urls);
