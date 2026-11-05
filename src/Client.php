@@ -94,6 +94,11 @@ class Client
         return $this->post('/v1/web/search', ['query' => $query] + $options);
     }
 
+    public function news(string $query, array $options = []): array
+    {
+        return $this->post('/v1/web/news', ['query' => $query] + $options);
+    }
+
     public function searchJobs(string $query, array $options = []): array
     {
         return $this->post('/v1/web/index/jobs/search', ['query' => $query] + $options);

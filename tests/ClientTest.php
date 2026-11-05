@@ -297,4 +297,14 @@ final class ClientTest extends TestCase
             $this->lastBody(),
         );
     }
+
+    public function testNewsPostsTheQueryAndWindow(): void
+    {
+        $client = $this->clientReturning(200, ['success' => true, 'data' => ['query' => 'acme raises', 'status' => 'ok', 'results' => [['title' => 'Acme raises $10M']]]]);
+        $news = $client->news('acme raises', ['timeRange' => 'day', 'limit' => 5]);
+
+        $this->assertSame('ok', $news['status']);
+        $this->assertSame('https://api.example.test/v1/web/news', $this->lastUrl());
+        $this->assertSame(['query' => 'acme raises', 'timeRange' => 'day', 'limit' => 5], $this->lastBody());
+    }
 }

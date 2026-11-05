@@ -123,6 +123,20 @@ foreach ($res['results'] as $r) {
 }
 ```
 
+## News
+
+Find recent news articles about anything, newest first, each with its outlet and publish time:
+
+```php
+$news = $hf->news('acme raises funding', ['timeRange' => 'week', 'limit' => 10]);
+
+foreach ($news['results'] as $article) {
+    echo $article['publishedAt'], ' ', $article['title'], ' ', $article['url'], PHP_EOL;
+}
+```
+
+A news search costs 1 credit, and one that finds nothing is free. Pass `'scrapeResults' => true` to also read each article as clean data, at 1 extra credit per article.
+
 ## Jobs
 
 Search open jobs collected from company career sites and hiring platforms, by the words in the job title:
@@ -233,6 +247,7 @@ A `transport` callable can be injected for testing, which is how this package's 
 | `markdown($url, $options)` | `string` | 1 |
 | `map($url, $options)` | links array | 1 |
 | `search($query, $options)` | results array | 1 + 1 per scraped result |
+| `news($query, $options)` | articles, newest first | 1 + 1 per article read; free when empty |
 | `searchJobs($query, $options)` | jobs array | 1 per 10 jobs |
 | `hiringChanges($domains, $since, $options)` | companies array | 1 per company with jobs |
 | `extract($urls, $options)` | array with `'results'` | 5 per URL |
