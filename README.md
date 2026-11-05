@@ -85,7 +85,7 @@ Pass `'prompt'` instead of, or alongside, `'schema'` to describe the fields in p
 
 ```php
 $links = $hf->map('https://example.com', ['limit' => 1000])['links'];
-$docs = array_values(array_filter($links, fn ($url) => str_contains($url, '/docs/')));
+$docs = array_values(array_filter(array_column($links, 'url'), fn ($url) => str_contains($url, '/docs/')));
 ```
 
 `batch` and `crawl` submit a job and poll until it finishes.
