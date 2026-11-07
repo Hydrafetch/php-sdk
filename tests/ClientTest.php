@@ -307,4 +307,43 @@ final class ClientTest extends TestCase
         $this->assertSame('https://api.example.test/v1/web/news', $this->lastUrl());
         $this->assertSame(['query' => 'acme raises', 'timeRange' => 'day', 'limit' => 5], $this->lastBody());
     }
+
+    private function acceptedThen(array $job): Client
+    {
+        $client = $this->clientWith(function (string $method, string $url) use ($job): array {
+            if (str_contains($url, '/v1/web/jobs/')) {
+                return [200, json_encode($job)];
+            }
+
+            return [202, json_encode(['jobId' => 'j-1', 'status' => 'running', 'poll' => '/v1/web/jobs/j-1'])];
+        });
+        $client->setCallJobPollMicros(0);
+
+        return $client;
+    }
+
+    public function testA202IsFollowedUntilTheJobCompletes(): void
+    {
+        $client = $this->acceptedThen(['jobId' => 'j-1', 'status' => 'completed', 'result' => ['data' => ['markdown' => '# hi']]]);
+
+        $this->assertSame(['markdown' => '# hi'], $client->scrape('https://example.com'));
+        $this->assertSame('https://api.example.test/v1/web/jobs/j-1', $this->lastUrl());
+    }
+
+    public function testAFailedJobThrowsTheErrorTheCallWouldHave(): void
+    {
+        $client = $this->acceptedThen([
+            'jobId' => 'j-1',
+            'status' => 'failed',
+            'error' => ['code' => 'SERVICE_UNAVAILABLE', 'message' => 'walled', 'status' => 503],
+        ]);
+
+        try {
+            $client->search('q');
+            $this->fail('expected an exception');
+        } catch (HydrafetchException $e) {
+            $this->assertSame('SERVICE_UNAVAILABLE', $e->errorCode);
+            $this->assertSame(503, $e->status);
+        }
+    }
 }

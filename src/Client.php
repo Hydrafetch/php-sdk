@@ -10,6 +10,12 @@ class Client
 
     private const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'];
 
+    private const ACCEPTED = 202;
+
+    private const CALL_JOB_TIMEOUT_S = 330;
+
+    private int $callJobPollMicros = 2_000_000;
+
     private string $apiKey;
     private string $baseUrl;
     private int $timeout;
@@ -260,12 +266,52 @@ class Client
             $this->lastRequestId = $headers['x-request-id'] ?? $this->lastRequestId;
 
             try {
-                return $this->unwrap($status, $raw);
+                $result = $this->unwrap($status, $raw);
             } catch (HydrafetchException $e) {
                 if (! $e->isRetryable() || $attempt >= $this->maxRetries) {
                     throw $e;
                 }
                 usleep((int) ((2 ** $attempt) * 250_000));
+                continue;
+            }
+
+            $poll = $status === self::ACCEPTED ? ($result['poll'] ?? null) : null;
+
+            return is_string($poll) ? $this->followCallJob($poll) : $result;
+        }
+    }
+
+    public function setCallJobPollMicros(int $micros): void
+    {
+        $this->callJobPollMicros = $micros;
+    }
+
+    private function followCallJob(string $poll): array
+    {
+        $deadline = microtime(true) + self::CALL_JOB_TIMEOUT_S;
+        while (true) {
+            usleep($this->callJobPollMicros);
+            $job = $this->request('GET', $poll, null, []);
+            $state = $job['status'] ?? null;
+            if ($state === 'completed') {
+                $result = $job['result'] ?? [];
+
+                return is_array($result) && array_key_exists('data', $result) && is_array($result['data'])
+                    ? $result['data']
+                    : (is_array($result) ? $result : []);
+            }
+            if ($state === 'failed') {
+                $error = $job['error'] ?? [];
+                throw new HydrafetchException(
+                    $error['message'] ?? 'The job failed.',
+                    $error['code'] ?? 'JOB_FAILED',
+                    (int) ($error['status'] ?? 500),
+                    $job['jobId'] ?? null,
+                    $error['details'] ?? null,
+                );
+            }
+            if (microtime(true) + $this->callJobPollMicros / 1_000_000 > $deadline) {
+                throw new TimeoutException(sprintf('The job did not finish in time; poll %s for its result.', $poll));
             }
         }
     }
