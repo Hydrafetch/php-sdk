@@ -14,6 +14,10 @@ class Client
 
     private const CALL_JOB_TIMEOUT_S = 330;
 
+    private const MAX_RETRY_WAIT_S = 30;
+
+    private const BACKOFF_CAP_S = 8.0;
+
     private int $callJobPollMicros = 2_000_000;
 
     private string $apiKey;
@@ -260,18 +264,18 @@ class Client
         $payload = $body === null ? null : json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
         for ($attempt = 0; ; $attempt++) {
-            $response = $this->send($method, $url, $payload);
-            [$status, $raw] = $response;
-            $headers = $response[2] ?? [];
-            $this->lastRequestId = $headers['x-request-id'] ?? $this->lastRequestId;
-
             try {
-                $result = $this->unwrap($status, $raw);
+                $response = $this->send($method, $url, $payload);
+                [$status, $raw] = $response;
+                $headers = $response[2] ?? [];
+                $this->lastRequestId = $headers['x-request-id'] ?? $this->lastRequestId;
+                $result = $this->unwrap($status, $raw, $headers);
             } catch (HydrafetchException $e) {
-                if (! $e->isRetryable() || $attempt >= $this->maxRetries) {
+                $wait = $this->retryWait($e, $attempt);
+                if (! $e->isRetryable() || $attempt >= $this->maxRetries || $wait === null) {
                     throw $e;
                 }
-                usleep((int) ((2 ** $attempt) * 250_000));
+                usleep((int) ($wait * 1_000_000));
                 continue;
             }
 
@@ -371,7 +375,33 @@ class Client
         return [$status, is_string($raw) ? $raw : '', $responseHeaders];
     }
 
-    private function unwrap(int $status, string $raw): array
+    private function retryWait(HydrafetchException $e, int $attempt): ?float
+    {
+        if ($e->retryAfter === null) {
+            return mt_rand() / mt_getrandmax() * min(self::BACKOFF_CAP_S, 0.5 * 2 ** $attempt);
+        }
+
+        return $e->retryAfter > self::MAX_RETRY_WAIT_S ? null : (float) $e->retryAfter;
+    }
+
+    private function retryAfter(array $headers, mixed $details): ?int
+    {
+        $header = trim((string) ($headers['retry-after'] ?? ''));
+        if ($header !== '' && ctype_digit($header)) {
+            return (int) $header;
+        }
+        if (is_array($details)) {
+            foreach (['retryAfterSeconds', 'retryAfter'] as $key) {
+                if (is_int($details[$key] ?? null) && $details[$key] >= 0) {
+                    return $details[$key];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function unwrap(int $status, string $raw, array $headers = []): array
     {
         $payload = null;
         if ($raw !== '') {
@@ -388,6 +418,7 @@ class Client
                 $status,
                 $payload['meta']['requestId'] ?? null,
                 $error['details'] ?? null,
+                $this->retryAfter($headers, $error['details'] ?? null),
             );
         }
 

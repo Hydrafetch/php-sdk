@@ -14,6 +14,7 @@ class HydrafetchException extends RuntimeException
         public readonly int $status = 500,
         public readonly ?string $requestId = null,
         public readonly mixed $details = null,
+        public readonly ?int $retryAfter = null,
     ) {
         parent::__construct($message);
     }

@@ -207,7 +207,7 @@ try {
     } elseif ($e->isInvalidRequest()) {
         report($e->getMessage());
     } elseif ($e->isRetryable()) {
-        enqueue($url);
+        enqueue($url, $e->retryAfter);
     } else {
         error_log("{$e->errorCode} {$e->status} {$e->requestId}");
         throw $e;
@@ -221,8 +221,10 @@ try {
 | 401, 403 | invalid or missing key | no |
 | 402 | out of credits | no |
 | 404 | page does not exist | no |
-| 429 | rate limited | yes, twice with backoff |
-| 5xx | upstream failure | yes, twice with backoff |
+| 429 | rate limited | yes, twice |
+| 5xx | upstream failure | yes, twice |
+
+Retries wait as long as the response asks through `Retry-After` or `retryAfterSeconds`, and otherwise back off with jitter. When the response asks for more than 30 seconds the client does not wait; it throws at once and `$e->retryAfter` gives the seconds to wait before asking again. A dropped connection is retried too, including while the client follows a job.
 
 A 503 from `scrape` means the origin is unreachable, usually a dead domain or a broken certificate.
 

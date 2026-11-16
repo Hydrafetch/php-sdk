@@ -186,6 +186,54 @@ final class ClientTest extends TestCase
         $this->assertSame(3, $attempts);
     }
 
+    public function testWaitsForRetryAfterBeforeRetrying(): void
+    {
+        $attempts = 0;
+        $client = $this->clientWith(function () use (&$attempts): array {
+            $attempts++;
+
+            return $attempts === 1
+                ? [429, json_encode(['success' => false, 'error' => ['message' => 'slow']]), ['retry-after' => '1']]
+                : [200, json_encode(['success' => true, 'data' => ['markdown' => 'ok']])];
+        }, 2);
+
+        $started = microtime(true);
+        $this->assertSame('ok', $client->scrape('https://example.com')['markdown']);
+        $this->assertGreaterThanOrEqual(0.95, microtime(true) - $started);
+    }
+
+    public function testThrowsAtOnceWhenAskedToWaitTooLong(): void
+    {
+        $client = $this->clientReturning(
+            503,
+            ['success' => false, 'error' => ['message' => 'later', 'details' => ['retryAfterSeconds' => 900]]],
+            3,
+        );
+
+        try {
+            $client->scrape('https://example.com');
+            $this->fail('expected an exception');
+        } catch (HydrafetchException $e) {
+            $this->assertSame(900, $e->retryAfter);
+        }
+        $this->assertCount(1, $this->calls);
+    }
+
+    public function testRetriesADroppedConnection(): void
+    {
+        $attempts = 0;
+        $client = $this->clientWith(function () use (&$attempts): array {
+            $attempts++;
+            if ($attempts === 1) {
+                throw new HydrafetchException('connection reset', 'TRANSPORT', 500);
+            }
+
+            return [200, json_encode(['success' => true, 'data' => ['markdown' => 'ok']])];
+        }, 2);
+
+        $this->assertSame('ok', $client->scrape('https://example.com')['markdown']);
+    }
+
     public function testBatchIdComesFromTheTopLevel(): void
     {
         $client = $this->clientReturning(201, ['batchId' => 'b_1', 'status' => 'pending']);
