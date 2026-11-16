@@ -36,7 +36,7 @@ class HydrafetchException extends RuntimeException
 
     public function isRetryable(): bool
     {
-        return $this->status === 429 || $this->status >= 500;
+        return $this->status === 429 || $this->status >= 500 || $this->errorCode === 'IDEMPOTENCY_IN_PROGRESS';
     }
 
     public function isTimeout(): bool

@@ -234,6 +234,26 @@ final class ClientTest extends TestCase
         $this->assertSame('ok', $client->scrape('https://example.com')['markdown']);
     }
 
+    public function testReusesOneIdempotencyKeyAcrossRetries(): void
+    {
+        $keys = [];
+        $transport = function (string $method, string $url, ?string $payload, string $apiKey, ?string $key) use (&$keys): array {
+            $keys[] = $key;
+
+            return count($keys) === 1
+                ? [503, json_encode(['success' => false, 'error' => ['message' => 'busy']])]
+                : [200, json_encode(['success' => true, 'data' => ['markdown' => 'ok']])];
+        };
+        $client = new Client('hf_test', 'https://api.example.test', 120, 2, $transport);
+        $client->scrape('https://example.com');
+        $client->scrape('https://example.com');
+
+        $this->assertCount(3, $keys);
+        $this->assertNotNull($keys[0]);
+        $this->assertSame($keys[0], $keys[1]);
+        $this->assertNotSame($keys[1], $keys[2]);
+    }
+
     public function testBatchIdComesFromTheTopLevel(): void
     {
         $client = $this->clientReturning(201, ['batchId' => 'b_1', 'status' => 'pending']);

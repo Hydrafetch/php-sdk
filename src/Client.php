@@ -263,9 +263,11 @@ class Client
 
         $payload = $body === null ? null : json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
+        $idempotencyKey = $method === 'POST' ? bin2hex(random_bytes(16)) : null;
+
         for ($attempt = 0; ; $attempt++) {
             try {
-                $response = $this->send($method, $url, $payload);
+                $response = $this->send($method, $url, $payload, $idempotencyKey);
                 [$status, $raw] = $response;
                 $headers = $response[2] ?? [];
                 $this->lastRequestId = $headers['x-request-id'] ?? $this->lastRequestId;
@@ -320,10 +322,10 @@ class Client
         }
     }
 
-    private function send(string $method, string $url, ?string $payload): array
+    private function send(string $method, string $url, ?string $payload, ?string $idempotencyKey = null): array
     {
         if ($this->transport !== null) {
-            return ($this->transport)($method, $url, $payload, $this->apiKey);
+            return ($this->transport)($method, $url, $payload, $this->apiKey, $idempotencyKey);
         }
 
         $handle = curl_init($url);
@@ -333,6 +335,9 @@ class Client
         ];
         if ($payload !== null) {
             $headers[] = 'Content-Type: application/json';
+        }
+        if ($idempotencyKey !== null) {
+            $headers[] = 'Idempotency-Key: ' . $idempotencyKey;
         }
 
         $responseHeaders = [];
