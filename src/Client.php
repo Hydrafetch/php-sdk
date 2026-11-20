@@ -172,7 +172,14 @@ class Client
 
     public function startBatch(array $urls, array $options = []): string
     {
-        return $this->jobId($this->post('/v1/web/batch', ['urls' => array_values($urls)] + $options), 'batchId');
+        return $this->submitBatch($urls, $options)['batchId'];
+    }
+
+    public function submitBatch(array $urls, array $options = []): array
+    {
+        $payload = $this->post('/v1/web/batch', ['urls' => array_values($urls)] + $options);
+
+        return ['batchId' => $this->jobId($payload, 'batchId')] + $payload;
     }
 
     public function batchStatus(string $id): array

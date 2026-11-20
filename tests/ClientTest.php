@@ -50,6 +50,14 @@ final class ClientTest extends TestCase
         $this->assertSame('hf_test', $this->calls[0]['apiKey']);
     }
 
+    public function testSubmitBatchSaysWhichUrlsWereSkipped(): void
+    {
+        $client = $this->clientReturning(201, ['batchId' => 'b_1', 'status' => 'queued', 'invalidUrls' => ['htps//a']]);
+        $accepted = $client->submitBatch(['https://a.example', 'htps//a']);
+
+        $this->assertSame(['b_1', ['htps//a']], [$accepted['batchId'], $accepted['invalidUrls']]);
+    }
+
     public function testCancelSendsDeleteOnTheJobId(): void
     {
         $client = $this->clientReturning(200, ['success' => true, 'data' => ['status' => 'cancelled']]);
