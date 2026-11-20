@@ -73,6 +73,54 @@ final class ClientTest extends TestCase
         );
     }
 
+    public function testCreateMonitorSendsScheduleTargetsAndGoal(): void
+    {
+        $client = $this->clientReturning(201, ['success' => true, 'data' => ['id' => 'mon_1']]);
+        $out = $client->createMonitor(
+            'Pricing',
+            [['type' => 'pages', 'urls' => ['https://acme.com/pricing'], 'goal' => 'the price drops']],
+            '1h',
+            ['email' => 'daily'],
+        );
+
+        $this->assertSame(['id' => 'mon_1'], $out);
+        $this->assertSame(['POST', 'https://api.example.test/v1/web/monitors'], [$this->calls[0]['method'], $this->calls[0]['url']]);
+        $body = json_decode($this->calls[0]['payload'], true);
+        $this->assertSame(['every' => '1h'], $body['schedule']);
+        $this->assertSame('the price drops', $body['targets'][0]['goal']);
+        $this->assertSame('daily', $body['email']);
+    }
+
+    public function testUpdateMonitorPatchesAndNestsEveryUnderSchedule(): void
+    {
+        $client = $this->clientReturning(200, ['success' => true, 'data' => ['id' => 'mon_1']]);
+        $client->updateMonitor('mon_1', ['every' => '1d', 'status' => 'paused']);
+
+        $this->assertSame('PATCH', $this->calls[0]['method']);
+        $this->assertSame(['status' => 'paused', 'schedule' => ['every' => '1d']], json_decode($this->calls[0]['payload'], true));
+    }
+
+    public function testMonitorRoutes(): void
+    {
+        $client = $this->clientReturning(200, ['success' => true, 'data' => []]);
+        $client->listMonitors(10, 20);
+        $client->runMonitor('mon 1');
+        $client->listMonitorChecks('mon_1', 5);
+        $client->getMonitorCheck('mon_1', 'chk_1');
+        $client->deleteMonitor('mon_1');
+
+        $this->assertSame(
+            [
+                ['GET', 'https://api.example.test/v1/web/monitors?limit=10&offset=20'],
+                ['POST', 'https://api.example.test/v1/web/monitors/mon%201/run'],
+                ['GET', 'https://api.example.test/v1/web/monitors/mon_1/checks?limit=5'],
+                ['GET', 'https://api.example.test/v1/web/monitors/mon_1/checks/chk_1'],
+                ['DELETE', 'https://api.example.test/v1/web/monitors/mon_1'],
+            ],
+            array_map(static fn (array $c) => [$c['method'], $c['url']], $this->calls),
+        );
+    }
+
     public function testRequiresAKey(): void
     {
         putenv('HYDRAFETCH_API_KEY');

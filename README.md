@@ -158,6 +158,41 @@ print_r($acme['totals']); // ['open' => 42, 'opened' => 6, 'closed' => 3]
 
 A search costs 1 credit per 10 jobs returned, and an empty one is free. Hiring changes cost 1 credit per company we have jobs for; companies we do not track yet come back empty and are free.
 
+## Monitors
+
+Watch pages, a whole site or a search on a schedule and hear about what changed. Monitors are available on paid plans.
+
+```php
+$monitor = $hf->createMonitor(
+    'Competitors',
+    [
+        ['type' => 'pages', 'urls' => ['https://acme.com/pricing'], 'goal' => 'a plan gets cheaper'],
+        ['type' => 'site', 'url' => 'https://acme.com/blog'],
+        ['type' => 'search', 'query' => 'acme funding'],
+    ],
+    '1h',
+    ['webhook' => ['url' => 'https://your-app.com/hooks/hydrafetch']],
+);
+```
+
+A pages target reports text that changed, as a line diff, plus fields such as price and availability. A site target reports pages that appear or go away, with each new page's title and opening lines. A search target reports results it has never returned before. With a `goal`, a change only alerts when it matches, and every change keeps the verdict and a one-sentence reason.
+
+Checks run in the background. Your webhook receives `monitor.change` for each change and `monitor.check.completed` once a check ends, or read them yourself:
+
+```php
+$latest = $hf->listMonitorChecks($monitor['id'], 1)[0];
+foreach ($hf->getMonitorCheck($monitor['id'], $latest['id'])['changes'] as $change) {
+    echo $change['status'], ' ', $change['url'], ' ', $change['judge']['reason'] ?? $change['diff'], PHP_EOL;
+}
+
+$hf->runMonitor($monitor['id']); // check now, outside the schedule
+$hf->updateMonitor($monitor['id'], ['status' => 'paused']);
+```
+
+`updateMonitor` takes `every` for the schedule and any other field as it is named in the API.
+
+A page read costs 1 credit, a site costs 1 per check plus 1 per new page read, and a search costs 1 per check. A goal adds 1 credit per change it checks. Pages that cannot be read are not charged.
+
 ## Brand data
 
 ```php
@@ -263,6 +298,11 @@ A `transport` callable can be injected for testing, which is how this package's 
 | `startCrawl`, `startBatch` | job id `string` | 1 per page |
 | `crawlStatus($id)`, `batchStatus($id)` | job array | free |
 | `cancelCrawl($id)`, `cancelBatch($id)` | job array | free, pages not yet read are not charged |
+| `createMonitor($name, $targets, $every, $options)`, `updateMonitor($id, $changes)` | monitor array | free; checks are charged as they run |
+| `listMonitors($limit, $offset)`, `getMonitor($id)` | array | free |
+| `runMonitor($id)` | check summary array | as a scheduled check |
+| `listMonitorChecks($id, $limit, $offset)`, `getMonitorCheck($id, $checkId)` | array | free |
+| `deleteMonitor($id)` | `void` | free |
 | `submitBatch($urls, $options)` | array with `batchId`, `status` and `invalidUrls` | 1 per page |
 | `rateResult($rating, requestId:, url:, reasons:, note:)` | rating array | free |
 

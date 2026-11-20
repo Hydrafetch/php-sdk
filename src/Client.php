@@ -197,6 +197,55 @@ class Client
         return $this->request('DELETE', '/v1/web/batch/' . rawurlencode($id), null, []);
     }
 
+    public function createMonitor(string $name, array $targets, string $every, array $options = []): array
+    {
+        return $this->post(
+            '/v1/web/monitors',
+            ['name' => $name, 'schedule' => ['every' => $every], 'targets' => array_values($targets)] + $options,
+        );
+    }
+
+    public function listMonitors(?int $limit = null, ?int $offset = null): array
+    {
+        return $this->get('/v1/web/monitors', ['limit' => $limit, 'offset' => $offset]);
+    }
+
+    public function getMonitor(string $id): array
+    {
+        return $this->get('/v1/web/monitors/' . rawurlencode($id));
+    }
+
+    public function updateMonitor(string $id, array $changes): array
+    {
+        $body = $this->compact($changes);
+        if (isset($body['every'])) {
+            $body['schedule'] = ['every' => $body['every']];
+            unset($body['every']);
+        }
+
+        return $this->request('PATCH', '/v1/web/monitors/' . rawurlencode($id), $body, []);
+    }
+
+    public function deleteMonitor(string $id): void
+    {
+        $this->request('DELETE', '/v1/web/monitors/' . rawurlencode($id), null, []);
+    }
+
+    public function runMonitor(string $id): array
+    {
+        return $this->request('POST', '/v1/web/monitors/' . rawurlencode($id) . '/run', null, []);
+    }
+
+    public function listMonitorChecks(string $id, ?int $limit = null, ?int $offset = null): array
+    {
+        return $this->get('/v1/web/monitors/' . rawurlencode($id) . '/checks', ['limit' => $limit, 'offset' => $offset]);
+    }
+
+    public function getMonitorCheck(string $id, string $checkId): array
+    {
+        return $this->get('/v1/web/monitors/' . rawurlencode($id) . '/checks/' . rawurlencode($checkId));
+    }
+
     public function crawl(
         string $url,
         array $options = [],
