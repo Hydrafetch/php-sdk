@@ -180,6 +180,16 @@ class Client
         return $this->get('/v1/web/batch/' . rawurlencode($id));
     }
 
+    public function cancelCrawl(string $id): array
+    {
+        return $this->request('DELETE', '/v1/web/crawl/' . rawurlencode($id), null, []);
+    }
+
+    public function cancelBatch(string $id): array
+    {
+        return $this->request('DELETE', '/v1/web/batch/' . rawurlencode($id), null, []);
+    }
+
     public function crawl(
         string $url,
         array $options = [],

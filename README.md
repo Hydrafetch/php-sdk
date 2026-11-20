@@ -262,6 +262,7 @@ A `transport` callable can be injected for testing, which is how this package's 
 | `batch($urls, $options, ...)` | job array, polled to completion | 1 per page |
 | `startCrawl`, `startBatch` | job id `string` | 1 per page |
 | `crawlStatus($id)`, `batchStatus($id)` | job array | free |
+| `cancelCrawl($id)`, `cancelBatch($id)` | job array | free, pages not yet read are not charged |
 | `rateResult($rating, requestId:, url:, reasons:, note:)` | rating array | free |
 
 Failed requests are not billed. Pricing does not vary with page difficulty, so there is no render, stealth or proxy option to set.

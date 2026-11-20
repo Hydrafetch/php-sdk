@@ -50,6 +50,21 @@ final class ClientTest extends TestCase
         $this->assertSame('hf_test', $this->calls[0]['apiKey']);
     }
 
+    public function testCancelSendsDeleteOnTheJobId(): void
+    {
+        $client = $this->clientReturning(200, ['success' => true, 'data' => ['status' => 'cancelled']]);
+        $results = [$client->cancelCrawl('c 1'), $client->cancelBatch('b_1')];
+
+        $this->assertSame(['cancelled', 'cancelled'], array_column($results, 'status'));
+        $this->assertSame(
+            [
+                ['DELETE', 'https://api.example.test/v1/web/crawl/c%201'],
+                ['DELETE', 'https://api.example.test/v1/web/batch/b_1'],
+            ],
+            array_map(static fn (array $c) => [$c['method'], $c['url']], $this->calls),
+        );
+    }
+
     public function testRequiresAKey(): void
     {
         putenv('HYDRAFETCH_API_KEY');
